@@ -20,9 +20,6 @@
 \usepackage{listings}
 \usepackage{color}
 
-\title{Syntax Highlighting in LaTeX with the listings Package}
-\author{writeLaTeX}
-
 \definecolor{mygreen}{rgb}{0,0.6,0}
 \definecolor{mygray}{rgb}{0.5,0.5,0.5}
 \definecolor{mymauve}{rgb}{0.58,0,0.82}
@@ -387,7 +384,7 @@ with open(csv_file, 'a') as outfile:
     writer.writerow(['With 2 moles of water'])
     writer.writerow(['T0 [K]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]'])
     for i in range(l2p):
-         writer.writerow([temps[i], pdata2_w[i,0], pdata2_2w[i,1]/1.e+6, pdata2_2w[i,2]])
+         writer.writerow([temps[i], pdata2_2w[i,0], pdata2_2w[i,1]/1.e+6, pdata2_2w[i,2]])
 \end{lstlisting}
 \subsubsection{The third loop}
 Data acquired in the third loop is then plotted:
@@ -430,31 +427,43 @@ plt.show()
 
 \section{Results}
 \subsection{Results from the first loop}
-Maximal explosion pressure is highest for $12\%$ of $CH_4$ in the mixture when there is no water, for $9.43\%$ when there is 1 mole of water and for $7.52$ when there are 2 moles of water. The maximal pressure is getting lower the more water is in the mixture.
-Those results were compared to those acquired by Shen et al.\cite{shen2016explosion}
-Lorem ipsum.
+Maximal explosion pressure is highest for $12\%$ of $CH_4$ in the mixture when there is no water, for $9.43\%$ when there is 1 mole of water and for $7.52$ when there are 2 moles of water. The maximal pressure is getting lower the more water is in the mixture and occurs at lower fraction of methane.
+Those results were compared to those acquired by Shen et al.\cite{shen2016explosion}, but because of Cantera's zero dimensionality, spark ignition couldn't been simulated, thus minimal temperature tested was $850 K$ in comparison to $298\ K$ in aforementioned paper.
+In Cantera simulation, maximal pressure without addition of water was determined to occur at higher vol. fraction of $CH_4$ (12\% vs 10.5\%). The maximal pressure was $0.3475\ MPa$, 2.65 times lower than in Shen's experiment. Like in Shen's experiment, the point of maximal pressure was moving towards lower $CH_4$ vol. fractions when water was added and was lower than when there was no water added.
+The discrepancy in results may be due to different phenomenons tested, that is ignition instead of autoignition.
+Figure \ref{fig:1} shows comparison of acquired maximal pressures as a function of methane vol. fraction in the mixture.
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.4\textwidth}
-        \includegraphics[width=\textwidth]{1_Pmax_to_CH4.png}
-        	\caption{Max. explosion pressure as a function of methane fraction}
-        \label{fig:1_1}
+        \includegraphics[width=\textwidth]{1_Pmax_to_CH4_2.png}
+        	\caption{Max. explosion pressure as a function of methane fraction computed in Cantera}
+        \label{fig:1_1a}
     \end{subfigure}
     \qquad
-    \begin{subfigure}[b]{0.4\textwidth}
-        \includegraphics[width=\textwidth]{1_Tmax_to_CH4.png}
-        	\caption{Max. temperature as a function of methane fraction}
-        \label{fig:1_2}
+    \begin{subfigure}[b]{0.5\textwidth}
+        \includegraphics[width=\textwidth]{f1_a2.png}
+        	\caption{Max. temperature as a function of methane fraction from \cite{shen2016explosion}}
+        \label{fig:1_1b}
     \end{subfigure}
-    \caption{Results from the first loop}\label{fig:1}
+    \caption{Results comparison}\label{fig:1}
+\end{figure}
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.5\textwidth]{1_Tmax_to_CH4.png}
+\caption{\label{fig:1_2}Maximum temperatures as a function of methane vol. fractions acquired in Cantera}
 \end{figure}
 
 \subsection{Results from the second loop}
+Maximal explosion pressures are getting lower the higher the temperature. Without water the drop between 850 and 2100 degrees is $75\%$, with 15\% of water $76.6\%$ and $77.4\%$.
+Maximal temperature is increasing with the increase of initial temperature. Relative maximal temperature for initial 850K is 1880 K and drops on average by 75.3K every 100K more for the initial temperature. The drop is 70.7/100 for 15.97\% of water and 65.1/100 for 27.64\% of water in the mixture (vol.).
+
+Difference between maximal temperatures at 750 and 2100K are:  $A\%$, with 15\% of water is $B\%$ and is $C\%$.
+Relative maximal temperatures calculated as $maximal\ temperature\ -\ initial\ temperature$ are shown on Fig 5
 
 \begin{figure}[H]
     \centering
     \begin{subfigure}[h]{0.4\textwidth}
-        \includegraphics[width=\textwidth]{2_Pmax_to_T.png}
+        \includegraphics[width=\textwidth]{2_Pmax_to_T_2.png}
         	\caption{Max. explosion pressure as a function of initial temperature}
         \label{fig:2_1}
     \end{subfigure}
@@ -467,12 +476,17 @@ Lorem ipsum.
     \caption{Results from the second loop}\label{fig:2}
 \end{figure}
 
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.5\textwidth]{1_Tmax_to_CH4.png}
+\caption{\label{fig:2_2rel}Maximum relative temps. as a function of methane vol. fractions acquired in Cantera}
+\end{figure}
 \subsection{Results from the third loop}
 
 \begin{figure}[H]
     \centering
     \begin{subfigure}[h]{0.4\textwidth}
-        \includegraphics[width=\textwidth]{3_Pmax_to_P.png}
+        \includegraphics[width=\textwidth]{3_Pmax_to_P_2.png}
         	\caption{Max. explosion pressure as a function of initial pressure}
         \label{fig:3_1}
     \end{subfigure}
