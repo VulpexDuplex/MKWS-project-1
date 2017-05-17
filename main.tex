@@ -46,13 +46,13 @@
 \maketitle
 
 \begin{abstract}
-A reactor with a volume of 20 litres was set up using Cantera in Python. Maximal temperatures, pressures and maximal pressure rise were calculated as a funciton of initial methane volume fraction, temperature and pressure. Calculations were performed for three molar fractions of water in the mixture (0, 15.97\% and 27.54\%). Maximum rate of pressure rise was too far away from experimental data.
+A reactor with a volume of 20 liters was set up using Cantera in Python. Maximal temperatures, pressures and maximal pressure rise were calculated as a function of initial methane volume fraction, temperature and pressure. Calculations were performed for three molar fractions of water in the mixture (0, 15.97\% and 27.54\%). Maximum rate of pressure rise was too far away from experimental data to be taken into consideration.
 \end{abstract}
 
 \section{Mathematical model}
 Mixture consisting of: 1 mole air (defined as $78\%\ N_2\ 21\%\ O_2$ and $1\%Ar$), $ch4\_mol$ moles of $CH_4$ and $water\_mol$ moles of $H_2o$ was set up in a Cantera reactor with a volume of $20 l$. Autoignition process occurs and explosion maximum pressures (defined as $maximal\ pressure\ -\ initial\ pressure\ in\ the\ reactor$) and temperatures are calculated. Maximum rate of pressure rise was also calculated but the results were too far away from experimental data.
 
-Calculations were performed for three molar fractions of water in the mixture: 0, 1 and 2 moles, (coresponding to 0\%, 15.97\% and 27.54\% of water vapour in the mixture respectively).
+Calculations were performed for three molar fractions of water in the mixture: 0, 1 and 2 moles, (coresponding to 0\%, 15.97\% and 27.54\% of water vapour vol. in the mixture respectively).
 
 \section{Python 3.6 program code}
 \subsection{Preparing the program}
@@ -65,7 +65,7 @@ import matplotlib.pyplot as plt
 \end{lstlisting}
 \subsection{Creating the 'airm' function}
 \subsubsection{Preparing the function}
-Next a function $airm$ was created. It would take initial temperature $(temp)$, initial pressure $(pressure)$, $H_2O$ mole fraction $(water\_mol)$ and $CH_4$ mole fraction $(ch4\_mol)$ as arguments. Additionally $plot$ could be set to either $0, 1$ or $2$ for printing information abut the simulation to the console to a different extent. 
+Next a function $airm$ was created. It would take initial temperature $(temp)$ in K, initial pressure $(pressure)$ in Pa, $H_2O$ mole fraction $(water\_mol)$ and $CH_4$ mole fraction $(ch4\_mol)$ as arguments. Additionally $plot$ could be set to either $0, 1$ or $2$ for printing information abut the simulation to the console to a different extent of details.
 
 
 	\begin{lstlisting}[language=python]
@@ -79,7 +79,7 @@ This part of code is calculating stoichiometric conditions and allowing to set u
     #Calculating stoichiometry
     n2=0.78/0.21
     ar=0.01/0.21
-    d="CH4:"+str(ch4_mol/10)+", O2:1, N2:"+str(n2)+", AR:"+str(ar)+", H2O:"+str(water_mol)  
+    d="CH4:"+str(ch4_mol)+", O2:1, N2:"+str(n2)+", AR:"+str(ar)+", H2O:"+str(water_mol) 
 
     print (d+"\n") #Printing state of the gas to be set to the console
 \end{lstlisting}
@@ -95,6 +95,7 @@ Creating mixture to autoignite
     r = ct.Reactor(contents=gas, name='reactor', volume=0.02)
     
     print ('Water mass fraction = %10.3f %%\n' % (r.thermo['H2O'].Y*100))
+    print ('Stoichiometry  index (phi) = %10.3f\n' % ((r.thermo['CH4'].X/r.thermo['O2'].X)/(0.5)) )
 \end{lstlisting}
 \subsubsection{Preparing simulation}
 \begin{lstlisting}[language=python]
@@ -103,7 +104,13 @@ Creating mixture to autoignite
     data = np.zeros((size,7))   
     time = 0.0 #starting time
     counter=size #setting 'counter' to 'size' (number of the loop iterations)
-    current_step = 1.e-2 #basic time step
+    #different basic time steps for differnet initial temperatures
+    if temp>1400:
+        current_step = 1.e-5 #shorter timestep for high temperatures
+    elif temp>1100:
+        current_step = 1.e-4 #shorter timestep for high temperatures
+    else:
+        current_step = 1.e-2 #basic time step
     dP=0
     
     f=open('data.txt', 'a') #preparing file for appending data
@@ -111,9 +118,16 @@ Creating mixture to autoignite
     sim = ct.ReactorNet([r]) #simulation
     size=20000 #number of iterations in the simulation advancing loop
     stepchange=0
-    short_step=5.e-4 #shorter time step [s]
-    itafex=((2.25*1.e-2)/short_step) #going through this many iterations at specified 
-
+    #different shorter time steps for different initial temperatures
+    if temp>1400:
+        short_step=1.e-6
+    elif temp>1100:
+        short_step=2.5*1.e-6
+    else:
+        short_step=1.e-4 #shorter time step [s] 
+        
+    itafex=((1.e-1)/short_step) #going through this many iterations at specified 
+    #timestep='short_step' should be equal to advancing the simulation by 0.1 seconds
     print('%10s %10s %10s %14s' % ('t [s]','T [K]','P [Pa]','u [J/kg]'))    
     f.write("Initial temperature is %10.3f\n\n" % (temp))
     f.write ('%10s %10s %10s %10s %10s %10s %10s %10s' % ('t [s]','step [s]','dT [K]','T [K]', 'dP [Pa]', 'P [Pa]', 'licznik', 'iteration\n'))
@@ -136,21 +150,27 @@ Data is stored in $times$ and $data$ arrays
             dP=r.thermo.P-data[n-1,1] #current pressure minus pressure from previous iteration, in [Pa]
             data[n,6] = dP/current_step/1.e+6 #dP/dt  - maximum rate of pressure rise in [Mpa/s]
 \end{lstlisting}
-Writing to file for the $itafex$ number of \textbf{it}erations \textbf{af}ter the \textbf{ex}plosion, that is equal to 0.0225 seconds passing, so as to catch the rapid rise of pressure and temperature and then going back to $ 1.e-2$ time step.
-\begin{lstlisting}[language=python]
-        if r.T>temp*1.1 and n<counter+itafex and stepchange==4: #writing to file for 0.00225 seconds
-            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time, current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n)) 
-        elif r.T>temp*1.1 and n>=counter+itafex: #setting time step back to 1.e-2, 0.00225 seconds after the explosion
-            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time, current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n)) 
-            if stepchange==4: #if the step was set to short, this sets it back to basic
+Writing to file for the $itafex$ number of \textbf{it}erations \textbf{af}ter the \textbf{ex}plosion, that is equal to 0.1 seconds passing, so as to catch the rapid rise of pressure and temperature and then going back to $ 1.e-2$ time step.
+\begin{lstlisting}[language=python]    
+        if r.T>temp*1.5 and n<counter+itafex and stepchange==4: #for the itafex number of interations 
+        #between explosion and going back to 1.e-2 tstep, that is equal to 0.0225 [s]
+            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time,
+            current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n)) 
+        elif r.T>temp*1.5 and n>=counter+itafex: #setting time step back to 1.e-2, 0.00225 seconds after the explosion
+            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time,
+            current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n)) 
+            if stepchange==4:
                 f.write('setting step back to 1.e-2\n')
-                current_step=1.e-2  
+                current_step=1.e-2
                 stepchange=2
+                break #optional, will make the simulation stop at 0.1 seconds after the ignition.
             
-        if r.T<=temp*1.1: #writing to file at each iteration before the explosion 
-            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time, current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n))     
-        elif r.T>temp*1.1 and counter==size: #at the beggining of explosion, in the iteration where counter is still set as 'size', the step is changed to the shorter one
-            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time, current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n))
+        if r.T<=temp*1.5: #writing to file reactor state at each iteration before the explosion 
+            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time,
+            current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n))      
+        elif r.T>temp*1.5 and counter==size: #during the peak, one iteration where counter is still set as size
+            f.write('%10.7f %10.3e %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n' % (sim.time,
+            current_step, data[n,0]-data[n-1,0], r.T, dP, r.thermo.P, counter, n)) 
             f.write('Setting current_step to 5.e-4\n')
             current_step=short_step
             counter=n
@@ -164,17 +184,21 @@ Writing to file for the $itafex$ number of \textbf{it}erations \textbf{af}ter th
 \end{lstlisting}
 \subsubsection{Calculating 'airm' function output}
 After the loop maximal temperature, pressure and rate of pressure rise are calculated
-\begin{lstlisting}[language=python]
+\begin{lstlisting}[language=python]               
     #extracing maximal values out of data tables
     Tmax=max(data[:,0]) #maximal temperature
     Tend=data[n,0] #temperature at the end of simulation
-    Pmax=max(data[:,1]) #maximal pressure
+    Pmax=max(data[:,1]) #maximal pressure (pressure computed - initial pressure)
     dPmax=max(data[:,6]) #maximum rate of pressure rise 
+    index_max = np.argmax(data[:,6])
+    adt=times[index_max]
+    if Pmax<(pressure*1.05-pressure):
+        adt=None
     print ('Tmax = %s [K]\nTend = %s [K]' % (Tmax, Tend))
-    print ('Explosion Pmax = %s [Pa]\n' % (Pmax-pressure))
+    print ('Explosion Pmax = %s [Pa]\n' % (Pmax))
     print ('Explosion dP/dt max = %s [MPa/s]\n' % (dPmax))
-    
-    output=[Tmax, Pmax, dPmax] #this is what function 'airm' would return at the end
+    print ('Autoiginition delay time = %s [s]\n' % (adt))
+    output=[Tmax, Pmax, dPmax, adt] #this is what this function ("airm") returns at the end   
 \end{lstlisting}
     
 Optionally plotting graphs showing temperature, pressure, $CH_4$ and $H_2O$ mole fractions as a function of time.
@@ -206,8 +230,9 @@ Optionally plotting graphs showing temperature, pressure, $CH_4$ and $H_2O$ mole
 
 Figure \ref{fig:example} shows example of plots printed by the function for input:
 \begin{lstlisting}[language=python]
-airm(temp=850, pressure=ct.one_atm, water_mol=1, ch4_mol=5, plot=2)
+airm(temp=850, pressure=ct.one_atm, water_mol=1, ch4_mol=0.5, plot=2)
 \end{lstlisting}
+This corresponds  to mixture consisting of 0.5 moles of methane, 1 mole of air, and 1 mole of water with initial temperature of 850K and initial pressure of 1 atm.
 \begin{figure}[h!]
 \centering
 \includegraphics[width=0.5\textwidth]{example_data.png}
@@ -289,7 +314,7 @@ plt.plot(ch4m_data, pdata[:,1]/1.e+6, label='without water')
 plt.xlabel('CH4 (%vol)')
 plt.ylabel('P_max [Mpa]')
 plt.subplot(2, 2, 2)
-plt.plot(temps, pdata2[:,0], label='without water')
+plt.plot(ch4m_data, pdata[:,0], label='without water')
 plt.xlabel('CH4 (%vol)')
 plt.ylabel('T_max [K]')
 #with 1 mole of water
@@ -298,7 +323,7 @@ plt.plot(ch4m_w_data, pdata_w[:,1]/1.e+6, label='15.97% of water')
 plt.xlabel('CH4 (%vol)')
 plt.ylabel('P_max [Mpa]')
 plt.subplot(2, 2, 2)
-plt.plot(temps, pdata2[:,0], label='15.97% of water')
+plt.plot(ch4m_data, pdata_w[:,0], label='15.97% of water')
 plt.xlabel('CH4 (%vol)')
 plt.ylabel('T_max [K]')
 #with 2 moles of water
@@ -308,10 +333,29 @@ plt.xlabel('CH4 (%vol)')
 plt.ylabel('P_max [Mpa]')
 plt.legend()
 plt.subplot(2, 2, 2)
-plt.plot(temps, pdata2[:,0], label='27.54% of water')
+plt.plot(ch4m_data, pdata_2w[:,0], label='27.54% of water')
 plt.xlabel('CH4 (%vol)')
 plt.ylabel('T_max [K]')
 plt.legend()
+plt.tight_layout()
+plt.show()
+
+plt.clf()
+plt.figure(figsize=(10,10))
+plt.subplot(1, 1, 1)
+plt.plot(ch4m_data, pdata[:,3]*1.e+3, label='without water')
+plt.xlabel('CH4 (%vol)')
+plt.ylabel('Autoign delay [ms]')
+plt.subplot(1, 1, 1)
+plt.plot(ch4m_data, pdata_w[:,3]*1.e+3, label='15.97% of water')
+plt.xlabel('CH4 (%vol)')
+plt.ylabel('Autoign delay [ms]')
+plt.subplot(1, 1, 1)
+plt.plot(ch4m_data, pdata_2w[:,3]*1.e+3, label='27.54% of water')
+plt.xlabel('CH4 (%vol)')
+plt.ylabel('Autoign delay [ms]')
+plt.legend()
+plt.grid()
 plt.tight_layout()
 plt.show()
 
@@ -320,17 +364,17 @@ with open(csv_file, 'w') as outfile:
     writer = csv.writer(outfile)
     writer.writerow(['The first loop'])
     writer.writerow(['Without water'])
-    writer.writerow(['CH4 [%]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]'])
+    writer.writerow(['CH4 [%]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
     for i in range(lp):
-         writer.writerow([ch4m_data[i], pdata[i,0], pdata[i,1]/1.e+6, pdata[i,2]])
+         writer.writerow([ch4m_data[i], pdata[i,0], pdata[i,1]/1.e+6, pdata[i,2], pdata[i,3]])
     writer.writerow(['With 1 mole of water'])
-    writer.writerow(['CH4[%]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]'])
+    writer.writerow(['CH4[%]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
     for i in range(lp):
-         writer.writerow([ch4m_w_data[i], pdata_w[i,0], pdata_w[i,1]/1.e+6, pdata_w[i,2]])
+         writer.writerow([ch4m_w_data[i], pdata_w[i,0], pdata_w[i,1]/1.e+6, pdata_w[i,2], pdata_w[i,3]])
     writer.writerow(['With 2 moles of water'])
-    writer.writerow(['CH4[%]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]'])
+    writer.writerow(['CH4[%]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
     for i in range(lp):
-         writer.writerow([ch4m_2w_data[i], pdata_2w[i,0], pdata_2w[i,1]/1.e+6, pdata_2w[i,2]])
+         writer.writerow([ch4m_2w_data[i], pdata_2w[i,0], pdata_2w[i,1]/1.e+6, pdata_2w[i,2],  pdata_2w[i,3]])
 \end{lstlisting}
 \subsubsection{The second loop}
 Data acquired in the second loop is then plotted:
@@ -369,29 +413,50 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
+plt.clf()
+plt.figure(figsize=(10,10))
+plt.subplot(1, 1, 1)
+plt.plot(1000/temps, pdata2[:,3]*1.e+3, label='without water')
+plt.xlabel('1000/T [1/K]')
+plt.yscale('log')
+plt.ylabel('Autoign delay [ms]')
+plt.subplot(1, 1, 1)
+plt.plot(1000/temps, pdata2_w[:,3]*1.e+3, label='15.97% of water')
+plt.xlabel('1000/T [1/K]')
+plt.yscale('log')
+plt.ylabel('Autoign delay [ms]')
+plt.subplot(1, 1, 1)
+plt.plot(1000/temps, pdata2_2w[:,3]*1.e+3, label='27.54% of water')
+plt.xlabel('1000/T [1/K]')
+plt.yscale('log')
+plt.ylabel('Autoign delay [ms]')
+plt.legend()
+plt.grid()
+plt.tight_layout()
+plt.show()
+
 csv_file = 'graphdata.csv'
 with open(csv_file, 'a') as outfile:
     writer = csv.writer(outfile)
     writer.writerow(['The second loopr'])
     writer.writerow(['Without water'])
-    writer.writerow(['T0 [K]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]'])
+    writer.writerow(['T0 [K]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
     for i in range(l2p):
-         writer.writerow([temps[i], pdata2[i,0], pdata2[i,1]/1.e+6, pdata2[i,2]])
+         writer.writerow([temps[i], pdata2[i,0], pdata2[i,1]/1.e+6, pdata2[i,2], pdata2[i,3]])
     writer.writerow(['With 1 mole of water'])
-    writer.writerow(['T0 [K]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]'])
+    writer.writerow(['T0 [K]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
     for i in range(l2p):
-         writer.writerow([temps[i], pdata2_w[i,0], pdata2_w[i,1]/1.e+6, pdata2_w[i,2]])
+         writer.writerow([temps[i], pdata2_w[i,0], pdata2_w[i,1]/1.e+6, pdata2_w[i,2], pdata2_w[i,3]])
     writer.writerow(['With 2 moles of water'])
-    writer.writerow(['T0 [K]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]'])
+    writer.writerow(['T0 [K]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
     for i in range(l2p):
-         writer.writerow([temps[i], pdata2_2w[i,0], pdata2_2w[i,1]/1.e+6, pdata2_2w[i,2]])
+         writer.writerow([temps[i], pdata2_2w[i,0], pdata2_2w[i,1]/1.e+6, pdata2_2w[i,2], pdata2_2w[i,3]])
 \end{lstlisting}
 \subsubsection{The third loop}
 Data acquired in the third loop is then plotted:
 \begin{lstlisting}[language=python]
-plt.clf()
+plt.clf() #clear the current figure
 #w/o water
-dpi=100
 plt.figure(figsize=(20,20))
 plt.subplot(2, 2, 1)
 plt.plot(press/1.e+6, pdata3[:,1]/1.e+6, label='without of water')
@@ -423,13 +488,49 @@ plt.ylabel('T_max [K]')
 plt.legend()
 plt.tight_layout()
 plt.show()       
+
+plt.clf()
+plt.figure(figsize=(10,10))
+plt.subplot(1, 1, 1)
+plt.plot(press/1.e+6, pdata3[:,3]*1.e+3, label='without water')
+plt.xlabel('Pressure [MPa]')
+plt.ylabel('Autoign delay [ms]')
+plt.subplot(1, 1, 1)
+plt.plot(press/1.e+6, pdata3_w[:,3]*1.e+3, label='15.97% of water')
+plt.xlabel('Pressure [MPa]')
+plt.ylabel('Autoign delay [ms]')
+plt.subplot(1, 1, 1)
+plt.plot(press/1.e+6, pdata3_2w[:,3]*1.e+3, label='27.54% of water')
+plt.xlabel('Pressure [MPa]')
+plt.yscale('log')
+plt.ylabel('Autoign delay [ms]')
+plt.legend()
+plt.tight_layout()
+plt.show()       
+
+csv_file = 'graphdata.csv'
+with open(csv_file, 'a') as outfile:
+    writer = csv.writer(outfile)
+    writer.writerow(['The third loop'])
+    writer.writerow(['Without water'])
+    writer.writerow(['p0 [MPa]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
+    for i in range(l3p):
+         writer.writerow([press[i]/1.e+6, pdata3[i,0], pdata3[i,1]/1.e+6, pdata3[i,2], pdata3[i,3]])
+    writer.writerow(['With 1 mole of water'])
+    writer.writerow(['p0 [MPa]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
+    for i in range(l3p):
+         writer.writerow([press[i]/1.e+6, pdata3_w[i,0], pdata3_w[i,1]/1.e+6, pdata3_w[i,2], pdata3_w[i,3]])
+    writer.writerow(['With 2 moles of water'])
+    writer.writerow(['p0 [MPa]', 'Tmax [K]', 'Pmax [MPa]', 'dP/dt max [MPa/s]', 'adt [s]'])
+    for i in range(l3p):
+         writer.writerow([press[i]/1.e+6, pdata3_2w[i,0], pdata3_2w[i,1]/1.e+6, pdata3_2w[i,2], pdata3_2w[i,3]])
 \end{lstlisting}
 
 \section{Results}
 \subsection{Results from the first loop}
 Maximal explosion pressure is highest for $12\%$ of $CH_4$ in the mixture when there is no water, for $9.43\%$ when there is 1 mole of water and for $7.52$ when there are 2 moles of water. The maximal pressure is getting lower the more water is in the mixture and occurs at lower fraction of methane.
 Those results were compared to those acquired by Shen et al.\cite{shen2016explosion}, but because of Cantera's zero dimensionality, spark ignition couldn't been simulated, thus minimal temperature tested was $850 K$ in comparison to $298\ K$ in aforementioned paper.
-In Cantera simulation, maximal pressure without addition of water was determined to occur at higher vol. fraction of $CH_4$ (12\% vs 10.5\%). The maximal pressure was $0.3475\ MPa$, 2.65 times lower than in Shen's experiment. Like in Shen's experiment, the point of maximal pressure was moving towards lower $CH_4$ vol. fractions when water was added and was lower than when there was no water added.
+In Cantera simulation, maximal pressure without addition of water was determined to occur at higher vol. fraction of $CH_4$ (12\% vs 10.5\%) than in experiment. The maximal pressure was $0.2461\ MPa$, which is 3.33 times lower than in Shen's experiment. Like in Shen's experiment, the point of maximal pressure was moving towards lower $CH_4$ vol. fractions when water was added and was lower with water than than when there was no water added.
 The discrepancy in results may be due to different phenomenons tested, that is ignition instead of autoignition.
 Figure \ref{fig:1} shows comparison of acquired maximal pressures as a function of methane vol. fraction in the mixture.
 \begin{figure}[H]
@@ -452,13 +553,16 @@ Figure \ref{fig:1} shows comparison of acquired maximal pressures as a function 
 \includegraphics[width=0.5\textwidth]{1_Tmax_to_CH4.png}
 \caption{\label{fig:1_2}Maximum temperatures as a function of methane vol. fractions acquired in Cantera}
 \end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{1_adt_to_CH4.png}
+\caption{\label{fig:1_3}Autoiginition delay times acquired in Cantera}
+\end{figure}
 
 \subsection{Results from the second loop}
 Maximal explosion pressures are getting lower the higher the temperature. Without water the drop between 850 and 2100 degrees is $75\%$, with 15\% of water $76.6\%$ and $77.4\%$.
 Maximal temperature is increasing with the increase of initial temperature. Relative maximal temperature for initial 850K is 1880 K and drops on average by 75.3K every 100K more for the initial temperature. The drop is 70.7/100 for 15.97\% of water and 65.1/100 for 27.64\% of water in the mixture (vol.).
-
-Difference between maximal temperatures at 750 and 2100K are:  $A\%$, with 15\% of water is $B\%$ and is $C\%$.
-Relative maximal temperatures calculated as $maximal\ temperature\ -\ initial\ temperature$ are shown on Fig 5
+Results are shown on Figures \ref{fig:2} and \ref{fig:2_3}.
 
 \begin{figure}[H]
     \centering
@@ -475,13 +579,23 @@ Relative maximal temperatures calculated as $maximal\ temperature\ -\ initial\ t
     \end{subfigure}
     \caption{Results from the second loop}\label{fig:2}
 \end{figure}
-
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.5\textwidth]{1_Tmax_to_CH4.png}
-\caption{\label{fig:2_2rel}Maximum relative temps. as a function of methane vol. fractions acquired in Cantera}
+\includegraphics[width=0.75\textwidth]{2_adt_to_T_b.png}
+\caption{\label{fig:2_3}Autoiginition delay times acquired in Cantera}
 \end{figure}
+
+Additional computations were performed for no water nad 8\% of water in the mixture (vol.) at the pressure of 10 atm to compare it to results reported by Goy et al.\cite{Goy2001}, they are shown together with Cantera results on Figure \ref{fig:2_goy}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{2_whole_graph_slopes.png}
+\caption{\label{fig:2_goy}Comarison of results from Cantera and \cite{Goy2001}}
+\end{figure}
+Data from Cantera simulation is fairly consistent (relative error of 4.84\% for 900K, 37\% for 1300K and 27\% for 1500K) with the data calculated using also GRI 3.0 mechanism from Goy paper, but diverges greatly from experimental data for temperatures below 1300K (small relative error of 34.5\% for 1500K, 27.86\% for 1300K and a massive error of 8581.3\% for 900K). Slopes for exponential trend lines for experimental data for temperatures below and above 1300K are different. This is because Version 3.0 of the GRI kinetic mechanism is validated only for temperatures above 1350 K.\cite{Goy2001}. Goy et al. states, that this may be due to change in activation energy at low temperature.
+
 \subsection{Results from the third loop}
+Maximal explosion pressure is changing linearly with initial pressure. The increase of 1MPa of initial pressure corresponds to increase of 1.886, 1.507 and 1.337 for no water, 15.67\% and 27.54\% of $CH_4$ fraction in the mixture (vol.) respectively (see Figure \ref{fig:3_1}).
+Maximal temperature for initial pressure of 0.5 atm is 7.33\% lower for 15.67\% of water in the mixture and 13.37\% for 27.64\% if water in the mixture (vol.) than when there was no water added. For initial pressure of 25.5 atm maximal temperature is 9.71\% lower for 15.67\% of water in the mixture and 17.18\% for 27.64\% of water in the mixture (vol.) than hen there was no water added (see Figure \ref{fig:3_2}).
 
 \begin{figure}[H]
     \centering
@@ -492,13 +606,34 @@ Relative maximal temperatures calculated as $maximal\ temperature\ -\ initial\ t
     \end{subfigure}
     \qquad
     \begin{subfigure}[h]{0.4\textwidth}
-        \includegraphics[width=\textwidth]{3_Tmax_to_P.png}
+        \includegraphics[width=\textwidth]{3_T_to_P_b.png}
         	\caption{Max. temperature as a function of initial pressure}
         \label{fig:3_2}
     \end{subfigure}
     \caption{Results from the third loop}\label{fig:3}
 \end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{3_adt_to_P.png}
+\caption{\label{fig:3_3}Autoiginition delay times acquired in Cantera}
+\end{figure}
+\subsection{Maximal rate of pressure rise}
+The maximal rate of pressure rise $(dP/dt)_(max)$ was calculated, but results were too far away from experimental data and varied greatly with the change time step, as seen on Figure \ref{fig:dPdt_timestep}. Because of that they were not analysed in this report.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{press_time.PNG}
+\caption{\label{fig:dPdt}Pressure as a function of time}
+\end{figure}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{dpdt_to_timestep.PNG}
+\caption{\label{fig:dPdt_timestep}Maximal rate of pressure rise as a function of simulation time step}
+\end{figure}
+
+
+\subsection{Conclusions}
+In each case addition of water vapour lowers maximal explosion pressure and maximal temperature, and also makes the autoignition delay time longer.
 
 \bibliographystyle{plain}
 \bibliography{ref}
